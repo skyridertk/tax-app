@@ -1,17 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Define types/interfaces
 type TaxPeriod = 'daily' | 'weekly' | 'fortnightly' | 'monthly' | 'annual';
-type Currency = 'USD' | 'ZWG';
+// type Currency = 'USD' | 'ZWG'; // Removed unused type
 type ThemeColor = 'green' | 'blue' | 'purple' | 'indigo';
 
-interface TaxBracket {
-  min: number;
-  max: number;
-  rate: number;
-  deduction: number;
-}
+
 
 interface BenefitOrDeduction {
   id: string;
@@ -21,9 +16,9 @@ interface BenefitOrDeduction {
   taxable: boolean; // For benefits: is it taxable? For deductions: is it tax-deductible?
 }
 
-type TaxBrackets = {
-  [key in TaxPeriod]: TaxBracket[];
-};
+// type TaxBrackets = { // Removed unused type
+//   [key in TaxPeriod]: TaxBracket[];
+// };
 
 interface TaxResult {
   grossIncome: number;
@@ -37,9 +32,9 @@ interface TaxResult {
   effectiveTaxRate: number;
 }
 
-const ZimbabweTaxCalculator: React.FC = () => {
-  const [income, setIncome] = useState<string>('');
-  const [currency, setCurrency] = useState<Currency>('USD');
+const ZimbabweTaxCalculator = () => {
+  const [income, setIncome] = useState('');
+  const [currency, setCurrency] = useState<'USD' | 'ZWG'>('USD'); // Use the type directly here
   const [period, setPeriod] = useState<TaxPeriod>('monthly');
   const [taxResult, setTaxResult] = useState<TaxResult | null>(null);
   const [benefitsAndDeductions, setBenefitsAndDeductions] = useState<BenefitOrDeduction[]>([]);
@@ -95,7 +90,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
   };
 
   // Tax brackets data for USD
-  const usdTaxBrackets: TaxBrackets = {
+  const usdTaxBrackets = {
     daily: [
       { min: 0, max: 3.29, rate: 0, deduction: 0 },
       { min: 3.3, max: 9.86, rate: 0.2, deduction: 0.66 },
@@ -139,7 +134,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
   };
 
   // Tax brackets data for ZWG
-  const zwgTaxBrackets: TaxBrackets = {
+  const zwgTaxBrackets = {
     daily: [
       { min: 0, max: 92.05, rate: 0, deduction: 0 },
       { min: 92.06, max: 276.16, rate: 0.2, deduction: 18.41 },
@@ -182,8 +177,11 @@ const ZimbabweTaxCalculator: React.FC = () => {
     ]
   };
 
+  // Define a type for the common items structure if not already defined elsewhere
+  type CommonItem = { name: string; type: 'benefit' | 'deduction'; taxable: boolean };
+
   // Common Zimbabwe tax deductions and benefits
-  const commonItems = [
+  const commonItems: CommonItem[] = [
     { name: "Housing Allowance", type: "benefit", taxable: true },
     { name: "Transport Allowance", type: "benefit", taxable: true },
     { name: "Medical Aid Contributions", type: "deduction", taxable: true },
@@ -196,27 +194,15 @@ const ZimbabweTaxCalculator: React.FC = () => {
     { name: "Meal Allowance", type: "benefit", taxable: true }
   ];
 
-  // Effect to auto-advance to benefits section when income is entered
-  useEffect(() => {
-    if (income && parseFloat(income) > 0 && activeSection === 'income') {
-      // Wait a bit before auto-advancing
-      const timer = setTimeout(() => {
-        setActiveSection('benefits');
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [income, activeSection]);
+  // No auto-navigation effects - users control navigation manually
 
-  // Effect to auto-advance to results when a benefit/deduction is added
-  useEffect(() => {
-    if (benefitsAndDeductions.length > 0 && activeSection === 'benefits') {
-      // Wait a bit before auto-advancing
-      const timer = setTimeout(() => {
-        setActiveSection('results');
-      }, 500);
-      return () => clearTimeout(timer);
+  const handleContinueToNextSection = () => {
+    if (income && parseFloat(income) > 0) {
+      setActiveSection('benefits');
+    } else {
+      alert('Please enter a valid income amount');
     }
-  }, [benefitsAndDeductions, activeSection]);
+  };
 
   const handleAddItem = () => {
     if (!newItem.name || !newItem.amount || isNaN(parseFloat(newItem.amount)) || parseFloat(newItem.amount) <= 0) {
@@ -224,7 +210,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
       return;
     }
 
-    const item: BenefitOrDeduction = {
+    const item = {
       ...newItem,
       id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
@@ -237,22 +223,23 @@ const ZimbabweTaxCalculator: React.FC = () => {
       type: 'benefit',
       taxable: true
     });
+    // No auto-navigation after adding an item
   };
 
   const handleRemoveItem = (id: string) => {
     setBenefitsAndDeductions(benefitsAndDeductions.filter(item => item.id !== id));
   };
 
-  const handleSelectCommonItem = (selectedItem: { name: string, type: string, taxable: boolean }) => {
+  const handleSelectCommonItem = (selectedItem: CommonItem) => {
     setNewItem({
       ...newItem,
       name: selectedItem.name,
-      type: selectedItem.type as 'benefit' | 'deduction',
+      type: selectedItem.type,
       taxable: selectedItem.taxable
     });
   };
 
-  const calculateTax = (): void => {
+  const calculateTax = () => {
     if (!income || isNaN(parseFloat(income)) || parseFloat(income) <= 0) {
       alert('Please enter a valid income amount');
       return;
@@ -263,39 +250,39 @@ const ZimbabweTaxCalculator: React.FC = () => {
     // Simulate a calculation process with delay
     setTimeout(() => {
       const basicIncome = parseFloat(income);
-      
+
       // Calculate taxable benefits
       const taxableBenefits = benefitsAndDeductions
         .filter(item => item.type === 'benefit' && item.taxable)
         .reduce((sum, item) => sum + parseFloat(item.amount), 0);
-      
+
       // Calculate non-taxable benefits
       const nonTaxableBenefits = benefitsAndDeductions
         .filter(item => item.type === 'benefit' && !item.taxable)
         .reduce((sum, item) => sum + parseFloat(item.amount), 0);
-      
+
       // Calculate tax deductions
       const taxDeductions = benefitsAndDeductions
         .filter(item => item.type === 'deduction' && item.taxable)
         .reduce((sum, item) => sum + parseFloat(item.amount), 0);
-      
+
       // Calculate non-tax deductions
       const nonTaxDeductions = benefitsAndDeductions
         .filter(item => item.type === 'deduction' && !item.taxable)
         .reduce((sum, item) => sum + parseFloat(item.amount), 0);
-      
+
       // Calculate total deductions (both tax and non-tax)
       const totalDeductions = taxDeductions + nonTaxDeductions;
-      
+
       // Calculate taxable income
       const taxableIncome = basicIncome + taxableBenefits - taxDeductions;
-      
+
       // Get appropriate tax brackets
       const brackets = currency === 'USD' ? usdTaxBrackets[period] : zwgTaxBrackets[period];
-      
+
       let tax = 0;
-      let bracket: TaxBracket | null = null;
-      
+      let bracket = null;
+
       // Find the appropriate tax bracket
       for (const b of brackets) {
         if (taxableIncome > b.min && taxableIncome <= b.max) {
@@ -306,26 +293,26 @@ const ZimbabweTaxCalculator: React.FC = () => {
           break;
         }
       }
-      
+
       // Calculate tax using the formula: income * rate - deduction
       if (bracket) {
         tax = (taxableIncome * bracket.rate) - bracket.deduction;
         tax = Math.max(0, tax); // Ensure tax isn't negative
       }
-      
+
       // Calculate AIDS levy (3% of tax)
       const aidsLevy = tax * 0.03;
-      
+
       // Total payable tax
       const totalTax = tax + aidsLevy;
-      
+
       // Net income after tax
       const totalBenefits = taxableBenefits + nonTaxableBenefits;
       const netIncome = basicIncome + totalBenefits - totalDeductions - totalTax;
-      
+
       // Effective tax rate
       const grossTotal = basicIncome + totalBenefits;
-      
+
       setTaxResult({
         grossIncome: basicIncome,
         taxableBenefits: taxableBenefits,
@@ -339,20 +326,21 @@ const ZimbabweTaxCalculator: React.FC = () => {
       });
 
       setIsCalculating(false);
+      // Only now navigate to results after calculation is complete
       setActiveSection('results');
     }, 800);
   };
 
-  const formatCurrency = (amount: number): string => {
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency: currency, // Use the state variable which holds 'USD' or 'ZWG'
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
   };
 
-  const handleReset = (): void => {
+  const handleReset = () => {
     setIncome('');
     setBenefitsAndDeductions([]);
     setTaxResult(null);
@@ -362,30 +350,30 @@ const ZimbabweTaxCalculator: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header Section */}
-      <div className={`rounded-xl shadow-lg overflow-hidden mb-8`}>
+      <div className="rounded-xl shadow-lg overflow-hidden mb-8">
         <div className={`bg-gradient-to-r ${themeClasses[theme].gradient} p-6 md:p-8`}>
           <div className="flex justify-between items-center">
             <h1 className="text-2xl md:text-3xl font-bold text-white font-sans">
               Zimbabwe PAYE Tax Calculator
             </h1>
             <div className="flex space-x-2">
-              <button 
-                onClick={() => setTheme('green')} 
+              <button
+                onClick={() => setTheme('green')}
                 className={`w-6 h-6 rounded-full bg-emerald-500 border-2 ${theme === 'green' ? 'border-white' : 'border-transparent'}`}
                 aria-label="Green theme"
               ></button>
-              <button 
-                onClick={() => setTheme('blue')} 
+              <button
+                onClick={() => setTheme('blue')}
                 className={`w-6 h-6 rounded-full bg-blue-500 border-2 ${theme === 'blue' ? 'border-white' : 'border-transparent'}`}
                 aria-label="Blue theme"
               ></button>
-              <button 
-                onClick={() => setTheme('purple')} 
+              <button
+                onClick={() => setTheme('purple')}
                 className={`w-6 h-6 rounded-full bg-purple-500 border-2 ${theme === 'purple' ? 'border-white' : 'border-transparent'}`}
                 aria-label="Purple theme"
               ></button>
-              <button 
-                onClick={() => setTheme('indigo')} 
+              <button
+                onClick={() => setTheme('indigo')}
                 className={`w-6 h-6 rounded-full bg-indigo-500 border-2 ${theme === 'indigo' ? 'border-white' : 'border-transparent'}`}
                 aria-label="Indigo theme"
               ></button>
@@ -395,28 +383,28 @@ const ZimbabweTaxCalculator: React.FC = () => {
             Calculate your 2025 PAYE tax with benefits and deductions in ZWG or USD
           </p>
         </div>
-        
+
         {/* Navigation Tabs */}
         <div className="bg-white border-b">
           <nav className="flex">
             <button
               onClick={() => setActiveSection('income')}
               className={`relative px-4 py-4 text-sm font-medium transition-colors duration-200 
-                ${activeSection === 'income' 
-                  ? `${themeClasses[theme].accent} border-b-2 border-current` 
+                ${activeSection === 'income'
+                  ? `${themeClasses[theme].accent} border-b-2 border-current`
                   : 'text-gray-500 hover:text-gray-700'}
               `}
             >
               <div className="flex items-center">
                 <span className={`flex items-center justify-center w-6 h-6 rounded-full mr-2 text-white 
-                  ${activeSection === 'income' 
-                    ? themeClasses[theme].primary 
+                  ${activeSection === 'income'
+                    ? themeClasses[theme].primary
                     : 'bg-gray-400'}
                 `}>1</span>
                 Basic Income
               </div>
               {activeSection === 'income' && (
-                <motion.div 
+                <motion.div
                   className={`absolute bottom-0 left-0 right-0 h-0.5 ${themeClasses[theme].primary}`}
                   layoutId="underline"
                 />
@@ -425,21 +413,21 @@ const ZimbabweTaxCalculator: React.FC = () => {
             <button
               onClick={() => setActiveSection('benefits')}
               className={`relative px-4 py-4 text-sm font-medium transition-colors duration-200
-                ${activeSection === 'benefits' 
-                  ? `${themeClasses[theme].accent} border-b-2 border-current` 
+                ${activeSection === 'benefits'
+                  ? `${themeClasses[theme].accent} border-b-2 border-current`
                   : 'text-gray-500 hover:text-gray-700'}
               `}
             >
               <div className="flex items-center">
                 <span className={`flex items-center justify-center w-6 h-6 rounded-full mr-2 text-white
-                  ${activeSection === 'benefits' 
-                    ? themeClasses[theme].primary 
+                  ${activeSection === 'benefits'
+                    ? themeClasses[theme].primary
                     : 'bg-gray-400'}
                 `}>2</span>
                 Benefits & Deductions
               </div>
               {activeSection === 'benefits' && (
-                <motion.div 
+                <motion.div
                   className={`absolute bottom-0 left-0 right-0 h-0.5 ${themeClasses[theme].primary}`}
                   layoutId="underline"
                 />
@@ -448,21 +436,21 @@ const ZimbabweTaxCalculator: React.FC = () => {
             <button
               onClick={() => setActiveSection('results')}
               className={`relative px-4 py-4 text-sm font-medium transition-colors duration-200
-                ${activeSection === 'results' 
-                  ? `${themeClasses[theme].accent} border-b-2 border-current` 
+                ${activeSection === 'results'
+                  ? `${themeClasses[theme].accent} border-b-2 border-current`
                   : 'text-gray-500 hover:text-gray-700'}
               `}
             >
               <div className="flex items-center">
                 <span className={`flex items-center justify-center w-6 h-6 rounded-full mr-2 text-white
-                  ${activeSection === 'results' 
-                    ? themeClasses[theme].primary 
+                  ${activeSection === 'results'
+                    ? themeClasses[theme].primary
                     : 'bg-gray-400'}
                 `}>3</span>
                 Tax Results
               </div>
               {activeSection === 'results' && (
-                <motion.div 
+                <motion.div
                   className={`absolute bottom-0 left-0 right-0 h-0.5 ${themeClasses[theme].primary}`}
                   layoutId="underline"
                 />
@@ -491,14 +479,14 @@ const ZimbabweTaxCalculator: React.FC = () => {
                     Enter your basic salary and select the currency and payment period.
                   </p>
                   <div className="hidden md:block">
-                    <img 
-                      src="https://api.dicebear.com/6.x/shapes/svg?seed=income" 
-                      alt="Income illustration" 
+                    <img
+                      src="https://api.dicebear.com/6.x/shapes/svg?seed=income"
+                      alt="Income illustration"
                       className="max-w-[200px] mx-auto opacity-80"
                     />
                   </div>
                 </div>
-                
+
                 <div className="md:w-2/3 p-6">
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -506,7 +494,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
                         <select
                           value={currency}
-                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCurrency(e.target.value as Currency)}
+                          onChange={(e) => setCurrency(e.target.value as 'USD' | 'ZWG')}
                           className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:border-transparent transition-shadow"
                         >
                           <option value="USD">Foreign Currency (USD)</option>
@@ -518,7 +506,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Income Period</label>
                         <select
                           value={period}
-                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPeriod(e.target.value as TaxPeriod)}
+                          onChange={(e) => setPeriod(e.target.value as TaxPeriod)}
                           className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:border-transparent transition-shadow"
                         >
                           <option value="daily">Daily</option>
@@ -539,7 +527,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                         <input
                           type="number"
                           value={income}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIncome(e.target.value)}
+                          onChange={(e) => setIncome(e.target.value)}
                           placeholder={`Enter your ${period} salary`}
                           className={`w-full p-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ${themeClasses[theme].ring} focus:ring-opacity-50 focus:border-transparent transition-shadow`}
                         />
@@ -554,13 +542,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                         Reset
                       </button>
                       <button
-                        onClick={() => {
-                          if (income && parseFloat(income) > 0) {
-                            setActiveSection('benefits');
-                          } else {
-                            alert('Please enter a valid income amount');
-                          }
-                        }}
+                        onClick={handleContinueToNextSection}
                         className={`px-6 py-2 rounded-lg text-white ${themeClasses[theme].primary} transition-colors shadow-sm hover:shadow`}
                       >
                         Continue
@@ -588,23 +570,23 @@ const ZimbabweTaxCalculator: React.FC = () => {
                     Add any benefits you receive and deductions from your income.
                   </p>
                   <div className="hidden md:block">
-                    <img 
-                      src="https://api.dicebear.com/6.x/shapes/svg?seed=benefits" 
-                      alt="Benefits illustration" 
+                    <img
+                      src="https://api.dicebear.com/6.x/shapes/svg?seed=benefits"
+                      alt="Benefits illustration"
                       className="max-w-[150px] mx-auto opacity-80"
                     />
                   </div>
                 </div>
-                
+
                 <div className="md:w-3/4 p-6">
                   <div className="space-y-6">
                     <div className={`bg-gray-50 p-5 rounded-lg border ${themeClasses[theme].border}`}>
                       <h3 className={`text-lg font-medium mb-4 ${themeClasses[theme].accent}`}>Add New Item</h3>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Common Items</label>
-                          <select 
+                          <select
                             onChange={(e) => {
                               const selectedIndex = parseInt(e.target.value);
                               if (selectedIndex >= 0) {
@@ -626,13 +608,13 @@ const ZimbabweTaxCalculator: React.FC = () => {
                           <input
                             type="text"
                             value={newItem.name}
-                            onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                             placeholder="Enter item name"
                             className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:border-transparent transition-shadow"
                           />
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Item Type</label>
@@ -651,7 +633,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                           </label>
                           <select
                             value={newItem.taxable.toString()}
-                            onChange={(e) => setNewItem({...newItem, taxable: e.target.value === 'true'})}
+                            onChange={(e) => setNewItem({ ...newItem, taxable: e.target.value === 'true' })}
                             className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:border-transparent transition-shadow"
                           >
                             <option value="true">Yes</option>
@@ -667,14 +649,14 @@ const ZimbabweTaxCalculator: React.FC = () => {
                             <input
                               type="number"
                               value={newItem.amount}
-                              onChange={(e) => setNewItem({...newItem, amount: e.target.value})}
+                              onChange={(e) => setNewItem({ ...newItem, amount: e.target.value })}
                               placeholder="Enter amount"
                               className="w-full p-2.5 pl-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50 focus:border-transparent transition-shadow"
                             />
                           </div>
                         </div>
                       </div>
-                      
+
                       <button
                         onClick={handleAddItem}
                         className={`w-full p-2.5 rounded-lg text-white ${themeClasses[theme].primary} transition-colors`}
@@ -682,13 +664,13 @@ const ZimbabweTaxCalculator: React.FC = () => {
                         Add Item
                       </button>
                     </div>
-                    
+
                     <div>
                       <h3 className={`text-lg font-medium mb-3 ${themeClasses[theme].accent}`}>Your Benefits & Deductions</h3>
-                      
+
                       <AnimatePresence>
                         {benefitsAndDeductions.length > 0 ? (
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             className="bg-white border rounded-lg overflow-hidden"
@@ -706,7 +688,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                               <tbody className="bg-white divide-y divide-gray-200">
                                 <AnimatePresence>
                                   {benefitsAndDeductions.map((item) => (
-                                    <motion.tr 
+                                    <motion.tr
                                       key={item.id}
                                       initial={{ opacity: 0, height: 0 }}
                                       animate={{ opacity: 1, height: 'auto' }}
@@ -716,8 +698,8 @@ const ZimbabweTaxCalculator: React.FC = () => {
                                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
                                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                                          ${item.type === 'benefit' 
-                                            ? 'bg-green-100 text-green-800' 
+                                          ${item.type === 'benefit'
+                                            ? 'bg-green-100 text-green-800'
                                             : 'bg-blue-100 text-blue-800'}
                                         `}>
                                           {item.type === 'benefit' ? 'Benefit' : 'Deduction'}
@@ -734,7 +716,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                                         {currency === 'USD' ? '$' : 'ZWG'} {parseFloat(item.amount).toFixed(2)}
                                       </td>
                                       <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                        <button 
+                                        <button
                                           onClick={() => handleRemoveItem(item.id)}
                                           className="text-red-500 hover:text-red-700 transition-colors"
                                         >
@@ -748,7 +730,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                             </table>
                           </motion.div>
                         ) : (
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-gray-500 text-center"
@@ -759,7 +741,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                         )}
                       </AnimatePresence>
                     </div>
-                    
+
                     <div className="flex justify-between">
                       <button
                         onClick={() => setActiveSection('income')}
@@ -818,7 +800,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Income Breakdown */}
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.1, duration: 0.3 }}
@@ -846,9 +828,9 @@ const ZimbabweTaxCalculator: React.FC = () => {
                             </div>
                           </div>
                         </motion.div>
-                        
+
                         {/* Tax Summary */}
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.2, duration: 0.3 }}
@@ -881,9 +863,9 @@ const ZimbabweTaxCalculator: React.FC = () => {
                           </div>
                         </motion.div>
                       </div>
-                      
+
                       {/* Visualization */}
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3, duration: 0.3 }}
@@ -894,9 +876,9 @@ const ZimbabweTaxCalculator: React.FC = () => {
                           {/* Tax portion */}
                           <div
                             className={`h-full ${themeClasses[theme].primary} text-xs text-white flex items-center justify-center`}
-                            style={{ 
+                            style={{
                               width: `${Math.min(100, taxResult.effectiveTaxRate)}%`,
-                              transition: 'width 0.5s ease-in-out' 
+                              transition: 'width 0.5s ease-in-out'
                             }}
                           >
                             {taxResult.effectiveTaxRate > 5 ? `${taxResult.effectiveTaxRate.toFixed(1)}%` : ''}
@@ -913,9 +895,9 @@ const ZimbabweTaxCalculator: React.FC = () => {
                           </div>
                         </div>
                       </motion.div>
-                      
+
                       {/* Notes & Summary */}
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4, duration: 0.3 }}
@@ -972,7 +954,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
                           </div>
                         </div>
                       </motion.div>
-                      
+
                       <div className="mt-6 flex justify-between">
                         <button
                           onClick={() => setActiveSection('benefits')}
@@ -1013,7 +995,7 @@ const ZimbabweTaxCalculator: React.FC = () => {
           )}
         </AnimatePresence>
       </div>
-      
+
       {/* Footer */}
       <div className="mt-8 text-center text-gray-500 text-sm">
         <p>© 2025 Zimbabwe Tax Calculator - For educational purposes only</p>
